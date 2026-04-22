@@ -4355,6 +4355,144 @@ SEEDRISE: function(pixel) {
 		}
 	}
 },
+"hazmat_man": {
+	color: ["#f7dc5d","#f2d24f","#ffe978"],
+	category: "playground",
+	cooldown: defaultCooldown,
+	onPlace: function(pixel) {
+		var unitName = generateHazmatName();
+		if (isEmpty(pixel.x, pixel.y+1) && isEmpty(pixel.x, pixel.y+2)) {
+			createPixel("hazmat_torso", pixel.x, pixel.y+1);
+			createPixel("hazmat_pelvis", pixel.x, pixel.y+2);
+			changePixel(pixel,"hazmat_head");
+			pixel.unitName = unitName;
+			pixelMap[pixel.x][pixel.y+1].unitName = unitName;
+			pixelMap[pixel.x][pixel.y+2].unitName = unitName;
+		}
+		else if (isEmpty(pixel.x, pixel.y-1) && isEmpty(pixel.x, pixel.y+1)) {
+			createPixel("hazmat_head", pixel.x, pixel.y-1);
+			createPixel("hazmat_pelvis", pixel.x, pixel.y+1);
+			changePixel(pixel,"hazmat_torso");
+			pixel.unitName = unitName;
+			pixelMap[pixel.x][pixel.y-1].unitName = unitName;
+			pixelMap[pixel.x][pixel.y+1].unitName = unitName;
+		}
+		else {
+			deletePixel(pixel.x, pixel.y);
+		}
+	},
+	related: ["hazmat_head","hazmat_torso","hazmat_pelvis"],
+	forceSaveColor: true
+},
+"hazmat_torso": {
+	color: ["#f2d24f","#d0bb4f","#9ba055"],
+	category: "life",
+	hidden: true,
+	density: 1600,
+	state: "solid",
+	temp: 37,
+	breakInto: ["metal_scrap","blood"],
+	burn: 8,
+	burnTime: 250,
+	pickElement: "hazmat_man",
+	properties: {dead:false,dir:1},
+	hoverStat: function(pixel) {
+		return (pixel.unitName || "Unnamed") + (pixel.dead ? " [DOWN]" : " [STANDING]");
+	},
+	tick: function(pixel) {
+		doHeat(pixel); doBurning(pixel); doElectricity(pixel);
+		var head = null;
+		var pelvis = null;
+		if (!isEmpty(pixel.x,pixel.y-1,true) && pixelMap[pixel.x][pixel.y-1].element === "hazmat_head") { head = pixelMap[pixel.x][pixel.y-1]; }
+		if (!isEmpty(pixel.x,pixel.y+1,true) && pixelMap[pixel.x][pixel.y+1].element === "hazmat_pelvis") { pelvis = pixelMap[pixel.x][pixel.y+1]; }
+		if (head && head.unitName && !pixel.unitName) { pixel.unitName = head.unitName; }
+		if (pelvis && pelvis.unitName && !pixel.unitName) { pixel.unitName = pelvis.unitName; }
+		if (!head || !pelvis) { pixel.dead = pixel.dead || pixelTicks; }
+		if (head && head.dead) { pixel.dead = head.dead; }
+		if (pixel.dead) {
+			if (pelvis && !pelvis.dead) { pelvis.dead = pixel.dead; }
+			if (Math.random() < 0.25) { tryMove(pixel,pixel.x + (Math.random() < 0.5 ? -1:1), pixel.y+1); }
+			return;
+		}
+		if (pelvis && tryMove(pelvis,pelvis.x,pelvis.y+1) && isEmpty(pixel.x,pixel.y+1)) {
+			movePixel(pixel,pixel.x,pixel.y+1);
+			if (head && isEmpty(head.x,head.y+1)) { movePixel(head,head.x,head.y+1); }
+		}
+		if (Math.random() < 0.07) {
+			var dir = (Math.random() < 0.5 ? -1 : 1);
+			if (isEmpty(pixel.x+dir,pixel.y) && isEmpty(pixel.x+dir,pixel.y-1) && isEmpty(pixel.x+dir,pixel.y+1)) {
+				if (head) movePixel(head,head.x+dir,head.y);
+				movePixel(pixel,pixel.x+dir,pixel.y);
+				if (pelvis) movePixel(pelvis,pelvis.x+dir,pelvis.y);
+			}
+		}
+	}
+},
+"hazmat_head": {
+	color: ["#9dc6d9","#85b7cd","#76a9bf"],
+	category: "life",
+	hidden: true,
+	state: "solid",
+	density: 1100,
+	pickElement: "hazmat_man",
+	breakInto: ["glass_shard","blood"],
+	properties: {dead:false},
+	hoverStat: function(pixel) {
+		return (pixel.unitName || "Unnamed") + (pixel.dead ? " [DOWN]" : " [STANDING]");
+	},
+	tick: function(pixel) {
+		doHeat(pixel); doBurning(pixel); doElectricity(pixel);
+		if (!isEmpty(pixel.x,pixel.y+1,true) && pixelMap[pixel.x][pixel.y+1].element === "hazmat_torso") {
+			if (!pixel.unitName && pixelMap[pixel.x][pixel.y+1].unitName) { pixel.unitName = pixelMap[pixel.x][pixel.y+1].unitName; }
+			if (pixelMap[pixel.x][pixel.y+1].dead && !pixel.dead) { pixel.dead = pixelMap[pixel.x][pixel.y+1].dead; }
+		}
+		else if (!pixel.dead && Math.random() < 0.2) {
+			pixel.dead = pixelTicks;
+		}
+		if (pixel.dead && Math.random() < 0.2) {
+			tryMove(pixel,pixel.x + (Math.random() < 0.5 ? -1:1), pixel.y+1);
+		}
+	}
+},
+"hazmat_pelvis": {
+	color: ["#d0bb4f","#9ba055","#778f4a"],
+	category: "life",
+	hidden: true,
+	state: "solid",
+	density: 1650,
+	pickElement: "hazmat_man",
+	breakInto: ["metal_scrap","blood"],
+	properties: {dead:false},
+	tick: function(pixel) {
+		doHeat(pixel); doBurning(pixel); doElectricity(pixel);
+		if (!isEmpty(pixel.x,pixel.y-1,true) && pixelMap[pixel.x][pixel.y-1].element === "hazmat_torso") {
+			if (!pixel.unitName && pixelMap[pixel.x][pixel.y-1].unitName) { pixel.unitName = pixelMap[pixel.x][pixel.y-1].unitName; }
+			if (pixelMap[pixel.x][pixel.y-1].dead && !pixel.dead) { pixel.dead = pixelMap[pixel.x][pixel.y-1].dead; }
+		}
+		if (pixel.dead) { behaviors.POWDER(pixel); }
+	}
+},
+"enemy_soldier": {
+	color: ["#3d7a3a","#5f7f4c","#404f32"],
+	category: "playground",
+	cooldown: defaultCooldown,
+	onPlace: function(pixel) {
+		changePixel(pixel,"human");
+		pixel.color = pixelColorPick(pixel,["#607c57","#4f6948","#55624b"]);
+		if (isEmpty(pixel.x,pixel.y+1)) {
+			createPixel("grenade",pixel.x,pixel.y+1);
+		}
+	}
+},
+"bomb_crate": {
+	color: ["#66442a","#7b4e2b","#8a5730"],
+	category: "playground",
+	state: "solid",
+	density: 1200,
+	onPlace: function(pixel) {
+		changePixel(pixel,Math.random() < 0.5 ? "grenade" : "dynamite");
+	}
+},
 "bird": {
 	color: "#997457",
 	properties: { "phase": 2, "rising":0 },
@@ -12184,6 +12322,33 @@ SEEDRISE: function(pixel) {
 	superconductAt: -271.95,
 	excludeRandom: true
 },
+"radium": {
+	color: ["#cfd8d9","#b9c2c5","#e0ecec"],
+	behavior: ["XX|CR:radiation%0.6|XX","XX|XX|XX","M2|M1|M2"],
+	category: "solids",
+	state: "solid",
+	density: 5500,
+	conduct: 0.22,
+	tempHigh: 700,
+	stateHigh: "molten_radium",
+	reactions: {
+		"water": { elem1:["radium","rad_pop"], elem2:["hydrogen","hydrogen"], chance:0.02, temp2:200 }
+	}
+},
+"molten_radium": {
+	color: ["#f4fbd6","#fff2b8"],
+	behavior: behaviors.MOLTEN,
+	category: "states",
+	hidden: true,
+	state: "liquid",
+	density: 5000,
+	temp: 750,
+	tempLow: 700,
+	stateLow: "radium",
+	reactions: {
+		"water": { elem1:["radium","rad_pop"], elem2:["hydrogen","steam"], chance:0.04, temp2:250 }
+	}
+},
 "molten_uranium": {
 	behavior: behaviors.RADMOLTEN,
 	reactions: {
@@ -18466,6 +18631,25 @@ behaviorRules = {
 			3: "[ ↑]",
 			4: "[ A]"
 		}
+		var hazmatNamePool = ["Axel","Nova","Rook","Ivy","Juno","Kade","Mira","Sable","Talon","Wren"];
+		var hazmatIdCounter = 1;
+		function generateHazmatName() {
+			var base = hazmatNamePool[Math.floor(Math.random()*hazmatNamePool.length)];
+			return base + "-" + (hazmatIdCounter++);
+		}
+		function getHazmatSurvivorStat() {
+			var alive = [];
+			for (var i = 0; i < currentPixels.length; i++) {
+				var px = currentPixels[i];
+				if (px.element === "hazmat_head" && !px.dead) {
+					alive.push(px.unitName || "Unnamed");
+				}
+			}
+			if (alive.length === 1) { return "Survivor:" + alive[0]; }
+			if (alive.length > 1) { return "Hazmat Alive:" + alive.length; }
+			return "Survivor:None";
+		}
+
 		// Update stats
 		function updateStats() {
 			var statsDiv = document.getElementById("stats");
@@ -18506,6 +18690,7 @@ behaviorRules = {
 			if (view !== null) {
 				stats += "<span id='stat-view' class='stat'>"+(viewInfo[view] ? viewInfo[view].name : view)+"</span>";
 			}
+			stats += "<span id='stat-hazmat-survivor' class='stat'>"+getHazmatSurvivorStat()+"</span>";
 			statsDiv.innerHTML = stats;
 		}
 
